@@ -10,8 +10,9 @@ class Config:
     database_url: str
 
 
-def load_config() -> Config:
-    load_dotenv()
+def load_config(load_env: bool = True) -> Config:
+    if load_env:
+        load_dotenv()
 
     telegram_bot_token = getenv("TELEGRAM_BOT_TOKEN")
     database_url = getenv("DATABASE_URL")

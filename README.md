@@ -26,6 +26,8 @@ psql bot_pengeluaran -f sql/001_create_expenses.sql
 
 ## Run
 
+The bot entrypoint is added later in the implementation. Once it is available, run:
+
 ```bash
 python -m expense_bot
 ```

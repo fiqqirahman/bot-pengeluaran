@@ -20,7 +20,7 @@ def test_load_config_rejects_missing_telegram_token(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://localhost/expenses")
 
     with pytest.raises(RuntimeError, match="TELEGRAM_BOT_TOKEN"):
-        load_config()
+        load_config(load_env=False)
 
 
 def test_load_config_rejects_missing_database_url(monkeypatch):
@@ -28,4 +28,16 @@ def test_load_config_rejects_missing_database_url(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
 
     with pytest.raises(RuntimeError, match="DATABASE_URL"):
-        load_config()
+        load_config(load_env=False)
+
+
+def test_load_config_can_skip_dotenv_when_testing_missing_values(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    tmp_path.joinpath(".env").write_text(
+        "TELEGRAM_BOT_TOKEN=from-dotenv\nDATABASE_URL=postgresql://from-dotenv\n"
+    )
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    with pytest.raises(RuntimeError, match="TELEGRAM_BOT_TOKEN"):
+        load_config(load_env=False)
