@@ -76,20 +76,21 @@ async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ):
         pct = round((total / expense_summary.total) * 100) if expense_summary.total > 0 else 0
         lines.append(f"📁 {category_name.upper()} - {_rupiah(total)} ({pct}%)")
-        
-        cat_records = by_category[category_name]
-        largest_in_cat = max(cat_records, key=lambda x: x.amount)
-        
-        for r in cat_records:
+
+        for r in by_category[category_name]:
             lines.append(f"   ▫️ {_rupiah(r.amount)}: {r.description}")
-            
-        lines.append(f"   🏆 Tertinggi: {_rupiah(largest_in_cat.amount)} ({largest_in_cat.description})\n")
+
+        lines.append("")
 
     lines.append("━━━━━━━━━━━━━━━")
     lines.append(f"💰 Total Akumulasi: {_rupiah(expense_summary.total)}")
     lines.append(f"📝 Total Transaksi: {len(records)}")
 
-    # Split lines into chunks if it exceeds Telegram's 4096 character limit
+    if expense_summary.largest:
+        l = expense_summary.largest
+        lines.append(f"\n🏆 Pengeluaran Tertinggi: {_rupiah(l.amount)}")
+        lines.append(f"   {l.description} ({l.category})")
+
     msg = "\n".join(lines)
     if len(msg) > 4000:
         for i in range(0, len(msg), 4000):
@@ -197,11 +198,11 @@ def _rupiah(amount: int) -> str:
     return f"Rp{amount:,}".replace(",", ".")
 
 def _month_name(month: int) -> str:
-    months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+    months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni",
               "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
     return months[month - 1]
 
 def _format_date(dt: datetime) -> str:
-    months_short = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", 
+    months_short = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
                     "Jul", "Ags", "Sep", "Okt", "Nov", "Des"]
     return f"{dt.day} {months_short[dt.month - 1]} {dt.strftime('%H:%M')}"
