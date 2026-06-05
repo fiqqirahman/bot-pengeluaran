@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
@@ -46,7 +46,7 @@ async def record_expense(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     await update.message.reply_text(
-        f"Tersimpan #{record.id}: {_rupiah(record.amount)} - {record.description} ({record.category})"
+        f"✅ Tersimpan #{record.id}: {_rupiah(record.amount)} - {record.description} ({record.category})"
     )
 
 async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -59,20 +59,19 @@ async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     records = repository.list_month(update.effective_user.id, year, month)
     expense_summary = build_summary(records)
-    lines = [f"Summary {year:04d}-{month:02d}", f"Total: {_rupiah(expense_summary.total)}"]
+    lines = [f"📊 Summary {_month_name(month)} {year}\n", f"Total: {_rupiah(expense_summary.total)}\n"]
 
     if expense_summary.category_totals:
-        lines.append("Kategori terbesar:")
+        lines.append("Kategori:")
         for category_name, total in sorted(
             expense_summary.category_totals.items(),
             key=lambda item: item[1],
             reverse=True,
         ):
-            lines.append(f"- {category_name}: {_rupiah(total)}")
+            pct = round((total / expense_summary.total) * 100) if expense_summary.total > 0 else 0
+            lines.append(f"• {category_name}: {_rupiah(total)} ({pct}%)")
 
-    if expense_summary.largest:
-        largest = expense_summary.largest
-        lines.append(f"Terbesar: #{largest.id} {_rupiah(largest.amount)} - {largest.description}")
+    lines.append(f"\nTransaksi: {len(records)}")
 
     await update.message.reply_text("\n".join(lines))
 
@@ -86,12 +85,12 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     records = top_expenses(repository.list_month(update.effective_user.id, year, month))
     if not records:
-        await update.message.reply_text(f"Belum ada pengeluaran untuk {year:04d}-{month:02d}.")
+        await update.message.reply_text(f"Belum ada pengeluaran untuk {_month_name(month)} {year}.")
         return
 
-    lines = [f"Top pengeluaran {year:04d}-{month:02d}:"]
-    for record in records:
-        lines.append(f"#{record.id} {_rupiah(record.amount)} - {record.description} ({record.category})")
+    lines = [f"🔝 Top 10 - {_month_name(month)} {year}\n"]
+    for i, record in enumerate(records, 1):
+        lines.append(f"{i}. #{record.id}: {_rupiah(record.amount)} - {record.description} ({record.category})")
     await update.message.reply_text("\n".join(lines))
 
 async def recent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -100,9 +99,9 @@ async def recent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Belum ada pengeluaran.")
         return
 
-    lines = ["Transaksi terbaru:"]
+    lines = ["📝 Transaksi Terakhir\n"]
     for record in records:
-        lines.append(f"#{record.id} {_rupiah(record.amount)} - {record.description} ({record.category})")
+        lines.append(f"#{record.id}: {_rupiah(record.amount)} - {record.description} ({record.category}) - {_format_date(record.spent_at)}")
     await update.message.reply_text("\n".join(lines))
 
 async def category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -174,3 +173,13 @@ def _repository(context: ContextTypes.DEFAULT_TYPE) -> ExpenseRepository:
 
 def _rupiah(amount: int) -> str:
     return f"Rp{amount:,}".replace(",", ".")
+
+def _month_name(month: int) -> str:
+    months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+              "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+    return months[month - 1]
+
+def _format_date(dt: datetime) -> str:
+    months_short = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", 
+                    "Jul", "Ags", "Sep", "Okt", "Nov", "Des"]
+    return f"{dt.day} {months_short[dt.month - 1]} {dt.strftime('%H:%M')}"
