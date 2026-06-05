@@ -58,22 +58,44 @@ async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     records = repository.list_month(update.effective_user.id, year, month)
+    if not records:
+        await update.message.reply_text(f"📊 Summary {_month_name(month)} {year}\n\nBelum ada transaksi di bulan ini.")
+        return
+
     expense_summary = build_summary(records)
-    lines = [f"📊 Summary {_month_name(month)} {year}\n", f"Total: {_rupiah(expense_summary.total)}\n"]
+    lines = [f"📊 Summary {_month_name(month)} {year}\n"]
 
-    if expense_summary.category_totals:
-        lines.append("Kategori:")
-        for category_name, total in sorted(
-            expense_summary.category_totals.items(),
-            key=lambda item: item[1],
-            reverse=True,
-        ):
-            pct = round((total / expense_summary.total) * 100) if expense_summary.total > 0 else 0
-            lines.append(f"• {category_name}: {_rupiah(total)} ({pct}%)")
+    by_category = {}
+    for r in records:
+        by_category.setdefault(r.category, []).append(r)
 
-    lines.append(f"\nTransaksi: {len(records)}")
+    for category_name, total in sorted(
+        expense_summary.category_totals.items(),
+        key=lambda item: item[1],
+        reverse=True,
+    ):
+        pct = round((total / expense_summary.total) * 100) if expense_summary.total > 0 else 0
+        lines.append(f"📁 {category_name.upper()} - {_rupiah(total)} ({pct}%)")
+        
+        cat_records = by_category[category_name]
+        largest_in_cat = max(cat_records, key=lambda x: x.amount)
+        
+        for r in cat_records:
+            lines.append(f"   ▫️ {_rupiah(r.amount)}: {r.description}")
+            
+        lines.append(f"   🏆 Tertinggi: {_rupiah(largest_in_cat.amount)} ({largest_in_cat.description})\n")
 
-    await update.message.reply_text("\n".join(lines))
+    lines.append("━━━━━━━━━━━━━━━")
+    lines.append(f"💰 Total Akumulasi: {_rupiah(expense_summary.total)}")
+    lines.append(f"📝 Total Transaksi: {len(records)}")
+
+    # Split lines into chunks if it exceeds Telegram's 4096 character limit
+    msg = "\n".join(lines)
+    if len(msg) > 4000:
+        for i in range(0, len(msg), 4000):
+            await update.message.reply_text(msg[i:i+4000])
+    else:
+        await update.message.reply_text(msg)
 
 async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     repository = _repository(context)
