@@ -7,7 +7,7 @@ from expense_bot.models import ParsedExpense
 class ParseError(ValueError):
     pass
 
-_AMOUNT_RE = re.compile(r"(?<!\w)(\d+(?:[.,]\d+)?)(rb|k)?(?!\w)", re.IGNORECASE)
+_AMOUNT_RE = re.compile(r"(?<!\w)(\d+(?:[.,]\d+)*)(rb|k)?(?!\w)", re.IGNORECASE)
 _MONTH_RE = re.compile(r"^(\d{4})-(\d{2})$")
 
 def parse_expense_message(text: str) -> ParsedExpense:
@@ -50,8 +50,13 @@ def parse_month_arg(arg: str, today: Optional[date] = None) -> Tuple[int, int]:
     return year, month
 
 def _parse_amount(number_text: str, suffix: Optional[str]) -> int:
-    normalized = number_text.replace(",", ".")
-    value = float(normalized)
+    if "," in number_text:
+        raise ParseError("Format nominal tidak valid (jangan gunakan koma, gunakan titik untuk ribuan)")
+
     if suffix and suffix.lower() in {"rb", "k"}:
-        value *= 1000
-    return int(value)
+        normalized = number_text.replace(",", ".")
+        value = float(normalized) * 1000
+        return int(value)
+    else:
+        normalized = number_text.replace(".", "")
+        return int(normalized)
